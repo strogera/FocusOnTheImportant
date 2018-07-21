@@ -27,13 +27,14 @@ def editButton(btn):
         #then user is done editing the entries and he needs to see the updated checkboxes
         count=0
         dic=app.getAllEntries()
+        dicKeySorted=sorted(app.getAllEntries().keys())
         #writing the changes on the file is not entirely needed since its done on exit either way
         #it may be useful but if its a permormance problem later on i can remove it
         with app.labelFrame("Today's Goals"):
             with open(".TodayLogFile", "w+") as curFile:
                 curFile.write("#Deleting this file you wont be able to track your todays goals. \n#Its recommended that you don't edit it manually either, so there is no data loss. \n#The program will read the first 3 non-comment lines.\n")
-                for textAreaName in dic:
-                    if "Task" in textAreaName:
+                for textAreaName in dicKeySorted:
+                    if textAreaName.startswith("Task"):
                         #write to file
                         if todaysCheckBoxes[textAreaName]:
                             curFile.write('1')
@@ -62,10 +63,11 @@ def editButton(btn):
         #then the user wants to edit the contents of the checkboxes
         #and needs to see the entries
         dic=app.getAllCheckBoxes()
+        dicKeySorted=sorted(app.getAllCheckBoxes().keys())
         count=1
         with app.labelFrame("Today's Goals"):
-            for checkBoxName in dic:
-                if "Task" in checkBoxName:
+            for checkBoxName in dicKeySorted:
+                if checkBoxName.startswith("Task"):
                     #show the entry and edit its content with the content of the
                     #checkbox respectively
                     app.showEntry(checkBoxName)
@@ -101,7 +103,7 @@ def addCheckBoxesElementsFromFile(listOfCheckBoxes, inputFile):
             line=todaysFile.readline()
             if line:
                 #ignore comment lines
-                while  line[0]=='#':
+                while line and line[0]=='#':
                     line=todaysFile.readline()
                 if line[0]=='1':
                     todaysCheckBoxes[checkBox]=True
@@ -117,16 +119,40 @@ def addCheckBoxesElementsFromFile(listOfCheckBoxes, inputFile):
                 app.setCheckBoxChangeFunction(checkBox, checkBoxTicked)
             count+=1
 
+def addEntriesElementsFromFile(listOfEntries, inputFile):
+    with open(inputFile, "r") as tomorrowsFile:
+        count=0
+        for entry in listOfEntries:
+            app.addEntry(entry)
+            line=tomorrowsFile.readline()
+            if line:    
+                #ignore comment lines
+                while  line and line[0]=='#':
+                    line=tomorrowsFile.readline()
+                app.setEntry(entry, line[:-1])
+
+
+
 def saveChanges():
     #save any changes localy so they are available when the program is opened again
-    with open(".TodayLogFile", "w+") as curFile:
-        curFile.write("#Deleting this file you wont be able to track your todays goals. \n#Its recommended that you don't edit it manually either, so there is no data loss. \n#The program will read the first 3 non-comment lines.\n")
+    entriesDic=app.getAllEntries()
+    entriesDicKeysSorted=sorted(app.getAllEntries().keys())
+    with open(".TodayLogFile", "w+") as todaysFile:
+        todaysFile.write("#Deleting this file you wont be able to track your todays goals. \n#Its recommended that you don't edit it manually either, so there is no data loss. \n#The program will read the first 3 non-comment lines.\n")
         for task in todaysCheckBoxes:
             if todaysCheckBoxes[task]:
-                curFile.write('1')
+                todaysFile.write('1')
             else:
-                curFile.write('0')
-            curFile.write(todaysCheckBoxesContent[task]+"\n")
+                todaysFile.write('0')
+            todaysFile.write(todaysCheckBoxesContent[task]+"\n")
+    for entries in entriesDic:
+        if entries.startswith("Tomorrow"):
+            tomorrowTasksContent[entries]=entriesDic[entries]
+    with open(".TomorrowsLogFile", "w+") as tomorrowsFile:
+        tomorrowsFile.write("#Deleting this file you wont be able to track your tomorrow's goals. \n#Its recommended that you don't edit it manually either, so there is no data loss. \n#The program will read the first 3 non-comment lines.\n")
+        for entries in entriesDicKeysSorted:
+            if entries.startswith("Tomorrow"):
+                tomorrowsFile.write(entriesDic[entries]+"\n")
     return True
 
 
@@ -157,8 +183,16 @@ with gui("tba") as app:
                     app.addButton("Edit", editButton, len(tasks), 0)
                     app.hideButton("Edit")
         with app.tab("Tomorrow"):
+            tomorrowTasks=["TomorrowTask1", "TomorrowTask2", "TomorrowTask3"]
+            tomorrowTasksContent={"TomorrowTask1":'', "TomorrowTask2":'', "TomorrowTask3":''}
             with app.labelFrame("Tomorrow's Goals"):
-                app.addEntry("asdf")
+                app.setSticky("ew")
+                try:
+                    #if the program has stored data show them
+                    addEntriesElementsFromFile(tomorrowTasks, ".TomorrowsLogFile")
+                except IOError:
+                    #else make them
+                    addEntriesElements(tomorrowTasks) 
         with app.tab("Long Term"):
             with app.labelFrame("Long Term Goals"):
                 app.addEntry("Goals")
