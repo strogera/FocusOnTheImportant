@@ -1,4 +1,5 @@
 from appJar import gui
+import time
 import sys
 
 
@@ -42,16 +43,22 @@ def editButton(btn):
                             curFile.write('0')
                         curFile.write(dic[textAreaName]+"\n")
                         #update the memory copy of the checkboxes
+                        oldContent=todaysCheckBoxesContent[textAreaName]
                         todaysCheckBoxesContent[textAreaName]=dic[textAreaName]
                         #hide the entry
                         app.hideEntry(textAreaName)
                         #add the updated checkbox
                         app.addNamedCheckBox(dic[textAreaName],textAreaName, count, 0)
                         #update its ticked state
-                        if todaysCheckBoxes[textAreaName]:
-                            app.setCheckBox(textAreaName, ticked=True, callFunction=False)
+                        if todaysCheckBoxes[textAreaName] and oldContent!='' and oldContent==todaysCheckBoxesContent[textAreaName]:
+                                app.setCheckBox(textAreaName, ticked=True, callFunction=False)
+                                todaysCheckBoxes[textAreaName]=True
+                                setCheckBoxColour(textAreaName)
                         else:
+                            #if a checkbox's state is false or its content was edited was edited untick
                             app.setCheckBox(textAreaName, ticked=False, callFunction=False)
+                            todaysCheckBoxes[textAreaName]=False
+                            setCheckBoxColour(textAreaName)
                         #on click use the checkBoxTicked function 
                         app.setCheckBoxChangeFunction(textAreaName, checkBoxTicked)
                         #set the correct colour
@@ -75,6 +82,8 @@ def editButton(btn):
                     #I need to remove the checkboxes and make them again when needed
                     #because the appJar library doesn't provide
                     #a way to set a namedCheckBox's content
+                   # app.setCheckBox(checkBoxName, ticked=False)
+                   # todaysCheckBoxes[checkBoxName]=False
                     app.removeCheckBox(checkBoxName)
                     count+=1
             app.hideButton("Edit")
@@ -88,6 +97,12 @@ def addEntriesElements(listOfEntries):
     for entry in listOfEntries:
         app.addEntry(entry, count, 0)
         count+=1
+
+def setEntriesElements(listOfEntries, dicOfContent):
+    #set the entries elements with the provided content in the dictionary
+    for entry in listOfEntries:
+        app.setEntry(entry, dicOfContent[entry])
+
 
 def hideEntriesElements(listOfEntries):
     #hides all the entry elements found in the given list
@@ -120,16 +135,19 @@ def addCheckBoxesElementsFromFile(listOfCheckBoxes, inputFile):
             count+=1
 
 def addEntriesElementsFromFile(listOfEntries, inputFile):
+    count=0
     with open(inputFile, "r") as tomorrowsFile:
-        count=0
         for entry in listOfEntries:
             app.addEntry(entry)
             line=tomorrowsFile.readline()
             if line:    
                 #ignore comment lines
-                while  line and line[0]=='#':
+                while line[0]=='#':
                     line=tomorrowsFile.readline()
-                app.setEntry(entry, line[:-1])
+                app.setEntry(entry, line[1:-1])
+                if line=='\n':
+                    count+=1
+    return count
 
 
 
@@ -153,8 +171,42 @@ def saveChanges():
         for entries in entriesDicKeysSorted:
             if entries.startswith("Tomorrow"):
                 tomorrowsFile.write(entriesDic[entries]+"\n")
+    with open(".lastOpened", "w+") as lastOpenedFile:
+        t=time.localtime();
+        lastOpenedFile.write(str(t.tm_year)+"\n"+str(t.tm_mon)+"\n"+str(t.tm_mday)+"\n"+str(t.tm_hour)+"\n")
     return True
 
+def transferTomorrowsGoalsToTodays():
+    #transfers the Goals set at Tomorrow's Goals tab to Today's
+    dic=app.getAllEntries()
+    dicKeySorted=sorted(app.getAllEntries().keys())
+    count=1
+    with app.labelFrame("Today's Goals"):
+        for name in dicKeySorted:
+            if name.startswith("Task"):
+                #show the entry and edit its content with the content of the
+                #tomorrow's respectively
+                ##if dic["Tomorrow"+name]: #uncomment to replace only those Tomorrow's goals that are set and not empty ones
+                app.setEntry(name, dic["Tomorrow"+name])
+                app.setEntry("Tomorrow"+name, '')
+                #I need to remove the checkboxes and make them again when needed
+                #because the appJar library doesn't provide
+                #a way to set a namedCheckBox's content
+                app.setCheckBox(name, ticked=False)
+                todaysCheckBoxes[name]=False
+                #
+                app.removeCheckBox(name)
+                app.showEntry(name)
+                count+=1
+        app.hideButton("Edit")
+        app.showButton("Done")
+
+
+def tomorrowsGoalsPrompt():
+    with app.subWindow("TomorrowsGoalsTransfer", modal=True):
+        if app.yesNoBox("Today's Goals", "You have past goals set in the tomorrow's goals tab\nDo you want to transfer them in today's?", parent="TomorrowsGoalsTransfer"):
+            #TODO archive current today's
+            transferTomorrowsGoalsToTodays()
 
 
 with gui("tba") as app:
@@ -172,6 +224,7 @@ with gui("tba") as app:
                     #if the program has stored data show them
                     addCheckBoxesElementsFromFile(tasks, ".TodayLogFile")
                     addEntriesElements(tasks)
+                    setEntriesElements(tasks, todaysCheckBoxesContent)
                     hideEntriesElements(tasks)
                     app.addButton("Done", editButton, len(tasks), 0)
                     app.addButton("Edit", editButton, len(tasks), 0)
@@ -183,13 +236,14 @@ with gui("tba") as app:
                     app.addButton("Edit", editButton, len(tasks), 0)
                     app.hideButton("Edit")
         with app.tab("Tomorrow"):
+            dayStartsAt=4; #0 for 00:00, 0-23 
             tomorrowTasks=["TomorrowTask1", "TomorrowTask2", "TomorrowTask3"]
             tomorrowTasksContent={"TomorrowTask1":'', "TomorrowTask2":'', "TomorrowTask3":''}
             with app.labelFrame("Tomorrow's Goals"):
                 app.setSticky("ew")
                 try:
                     #if the program has stored data show them
-                    addEntriesElementsFromFile(tomorrowTasks, ".TomorrowsLogFile")
+                    countEmptyLinesInTomorrowsFile=addEntriesElementsFromFile(tomorrowTasks, ".TomorrowsLogFile")
                 except IOError:
                     #else make them
                     addEntriesElements(tomorrowTasks) 
@@ -198,5 +252,63 @@ with gui("tba") as app:
                 app.addEntry("Goals")
         with app.tab("Archieved Goals"):
             app.addEntry("afdf")
+
+
+        if countEmptyLinesInTomorrowsFile!=len(tomorrowTasks):
+            #if there are at least something in .TomorrowsLogFile
+            #ask the user to replace everything in the today's tab if the day has changed 
+            #from the last time the program was opened
+            try:
+                with open(".lastOpened", "r") as lastOpenedFile:
+                    lt=time.localtime()
+                    line=lastOpenedFile.readline()
+                    if line:
+                        year=int(line[:-1])
+                    line=lastOpenedFile.readline()
+                    if line:
+                        month=int(line[:-1])
+                    line=lastOpenedFile.readline()
+                    if line:
+                        day=int(line[:-1])
+                    if line:
+                        hour=int(line[:-1])
+                    if lt.tm_year>year:
+                        #prompt
+                        app.setTabbedFrameSelectedTab("pages","Tomorrow")
+                        app.show()
+                        tomorrowsGoalsPrompt()
+                        app.setTabbedFrameSelectedTab("pages","Today")
+                    elif lt.tm_year==year:
+                        if lt.tm_mon>month:
+                            #prompt
+                            app.setTabbedFrameSelectedTab("pages","Tomorrow")
+                            app.show()
+                            tomorrowsGoalsPrompt()
+                            app.setTabbedFrameSelectedTab("pages","Today")
+                        elif lt.tm_mon==month:
+                            if lt.tm_mday>day+1:
+                                #prompt
+                                app.setTabbedFrameSelectedTab("pages","Tomorrow")
+                                app.show()
+                                tomorrowsGoalsPrompt()
+                                app.setTabbedFrameSelectedTab("pages","Today")
+                            elif lt.tm_mday==day+1:
+                                if ((lt.tm_hour+hour)-24)>=dayStartsAt:
+                                    #prompt
+                                    app.setTabbedFrameSelectedTab("pages","Tomorrow")
+                                    app.show()
+                                    tomorrowsGoalsPrompt()
+                                    app.setTabbedFrameSelectedTab("pages","Today")
+                            elif lt.tm_mday==day:
+                                if lt.tm_hour-dayStartsAt<=0:
+                                    #prompt
+                                    app.setTabbedFrameSelectedTab("pages","Tomorrow")
+                                    app.show()
+                                    tomorrowsGoalsPrompt()
+                                    app.setTabbedFrameSelectedTab("pages","Today")
+
+            except IOError:
+                pass
+
     app.setStopFunction(saveChanges)      
 
