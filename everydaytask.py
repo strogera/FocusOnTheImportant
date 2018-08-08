@@ -55,7 +55,7 @@ def editButton(btn):
                                 todaysCheckBoxes[textAreaName]=True
                                 setCheckBoxColour(textAreaName)
                         else:
-                            #if a checkbox's state is false or its content was edited was edited untick
+                            #if a checkbox's state is false or its content was edited untick
                             app.setCheckBox(textAreaName, ticked=False, callFunction=False)
                             todaysCheckBoxes[textAreaName]=False
                             setCheckBoxColour(textAreaName)
@@ -92,6 +92,24 @@ def editButton(btn):
             app.showButton("Done")
             app.hideButton("Archieve")
             app.showButton("Cancel")
+    elif btn=="Cancel":
+        with app.labelFrame("Today's Goals"):
+            count=0
+            for textAreaName in todaysCheckBoxes:
+                oldContent=todaysCheckBoxesContent[textAreaName]
+                app.hideEntry(textAreaName)
+                #add the old checkbox
+                app.addNamedCheckBox(oldContent,textAreaName, count, 0, colspan=2)
+                app.setCheckBox(textAreaName, ticked=todaysCheckBoxes[textAreaName], callFunction=False)
+                #on click use the checkBoxTicked function 
+                app.setCheckBoxChangeFunction(textAreaName, checkBoxTicked)
+                #set the correct colour
+                setCheckBoxColour(textAreaName)
+                count+=1
+            app.hideButton("Done")
+            app.showButton("Edit")
+            app.hideButton("Cancel")
+            app.showButton("Archieve")
 
 def archieveButton(btn):
     pass
