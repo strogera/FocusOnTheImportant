@@ -48,7 +48,7 @@ def editButton(btn):
                         #hide the entry
                         app.hideEntry(textAreaName)
                         #add the updated checkbox
-                        app.addNamedCheckBox(dic[textAreaName],textAreaName, count, 0)
+                        app.addNamedCheckBox(dic[textAreaName],textAreaName, count, 0, colspan=2)
                         #update its ticked state
                         if todaysCheckBoxes[textAreaName] and oldContent!='' and oldContent==todaysCheckBoxesContent[textAreaName]:
                                 app.setCheckBox(textAreaName, ticked=True, callFunction=False)
@@ -66,6 +66,8 @@ def editButton(btn):
                         count+=1
             app.hideButton("Done")
             app.showButton("Edit")
+            app.hideButton("Cancel")
+            app.showButton("Archieve")
     elif btn=="Edit":
         #then the user wants to edit the contents of the checkboxes
         #and needs to see the entries
@@ -88,6 +90,11 @@ def editButton(btn):
                     count+=1
             app.hideButton("Edit")
             app.showButton("Done")
+            app.hideButton("Archieve")
+            app.showButton("Cancel")
+
+def archieveButton(btn):
+    pass
 
 def addEntriesElements(listOfEntries):
     #adds as much entries elements as there are in the given list with the name provided
@@ -95,7 +102,7 @@ def addEntriesElements(listOfEntries):
     #adds two Entries elements with the respective names
     count=0
     for entry in listOfEntries:
-        app.addEntry(entry, count, 0)
+        app.addEntry(entry, count, 0, colspan=2)
         count+=1
 
 def setEntriesElements(listOfEntries, dicOfContent):
@@ -123,14 +130,14 @@ def addCheckBoxesElementsFromFile(listOfCheckBoxes, inputFile):
                 if line[0]=='1':
                     todaysCheckBoxes[checkBox]=True
                 todaysCheckBoxesContent[checkBox]=line[1:-1]
-                app.addNamedCheckBox(todaysCheckBoxesContent[checkBox],checkBox, count, 0)
+                app.addNamedCheckBox(todaysCheckBoxesContent[checkBox],checkBox, count, 0, colspan=2)
                 app.setCheckBox(checkBox, ticked=todaysCheckBoxes[checkBox])
                 app.setCheckBoxChangeFunction(checkBox, checkBoxTicked)
                 setCheckBoxColour(checkBox)
 
             else:
                 todaysCheckBoxesContent[checkBox]=""
-                app.addNamedCheckBox("", checkBox, count, 0)
+                app.addNamedCheckBox("", checkBox, count, 0, colspan=2)
                 app.setCheckBoxChangeFunction(checkBox, checkBoxTicked)
             count+=1
 
@@ -144,7 +151,7 @@ def addEntriesElementsFromFile(listOfEntries, inputFile):
                 #ignore comment lines
                 while line[0]=='#':
                     line=tomorrowsFile.readline()
-                app.setEntry(entry, line[1:-1])
+                app.setEntry(entry, line[:-1])
                 if line=='\n':
                     count+=1
     return count
@@ -209,7 +216,7 @@ def tomorrowsGoalsPrompt():
             transferTomorrowsGoalsToTodays()
 
 
-with gui("tba") as app:
+with gui("tba", sticky="nesw") as app:
     app.setBg("lightblue")
     app.setSize(600, 300)
     with app.tabbedFrame("pages"):
@@ -219,26 +226,38 @@ with gui("tba") as app:
             todaysCheckBoxesContent={"Task1":"", "Task2":"", "Task3":""}
             tasks=["Task1", "Task2", "Task3"]
             with app.labelFrame("Today's Goals"):
-                app.setSticky("ew")
+                app.setSticky("nsew")
+                app.setStretch("both")
                 try:
                     #if the program has stored data show them
                     addCheckBoxesElementsFromFile(tasks, ".TodayLogFile")
                     addEntriesElements(tasks)
                     setEntriesElements(tasks, todaysCheckBoxesContent)
                     hideEntriesElements(tasks)
+                    app.setSticky("ew")
                     app.addButton("Done", editButton, len(tasks), 0)
                     app.addButton("Edit", editButton, len(tasks), 0)
                     app.hideButton("Done")
+                    app.addButton("Archieve", archieveButton, len(tasks), 1)
+                    app.addButton("Cancel", editButton, len(tasks), 1)
+                    app.hideButton("Cancel")
+                    app.setSticky("nsew")
                 except IOError:
                     #else make them
                     addEntriesElements(tasks) 
+                    app.setSticky("ew")
                     app.addButton("Done", editButton, len(tasks), 0)
                     app.addButton("Edit", editButton, len(tasks), 0)
                     app.hideButton("Edit")
+                    app.addButton("Archieve", archieveButton, len(tasks), 1)
+                    app.addButton("Cancel", editButton, len(tasks), 1)
+                    app.hideButton("Archieve")
+                    app.setSticky("nsew")
         with app.tab("Tomorrow"):
             dayStartsAt=4; #0 for 00:00, 0-23 
             tomorrowTasks=["TomorrowTask1", "TomorrowTask2", "TomorrowTask3"]
             tomorrowTasksContent={"TomorrowTask1":'', "TomorrowTask2":'', "TomorrowTask3":''}
+            countEmptyLinesInTomorrowsFile=-1
             with app.labelFrame("Tomorrow's Goals"):
                 app.setSticky("ew")
                 try:
@@ -254,7 +273,7 @@ with gui("tba") as app:
             app.addEntry("afdf")
 
 
-        if countEmptyLinesInTomorrowsFile!=len(tomorrowTasks):
+        if countEmptyLinesInTomorrowsFile!=-1 and countEmptyLinesInTomorrowsFile!=len(tomorrowTasks):
             #if there are at least something in .TomorrowsLogFile
             #ask the user to replace everything in the today's tab if the day has changed 
             #from the last time the program was opened
